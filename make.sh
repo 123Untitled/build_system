@@ -3,9 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='0.0.1'
-
-
+version='f'
 
 
 
@@ -41,6 +39,30 @@ script=$abspath/${0##*/}
 
 # basename of the script without using basename command
 scriptname=${0##*/}
+
+
+echo $script
+
+function change_version {
+	# remove dots
+	update=${version//./}
+	# convert to decimal
+	update=$((16#$update))
+	# increment
+	update=$(($update+1))
+	# convert to hex
+	update=$(printf '%x' $update)
+	# reset version
+	version=''
+	# loop through all digits to insert dots
+	for (( i=0; i < ${#update}; ++i )); do
+		version+=${update:$i:1}'.'
+	done
+	# remove last dot
+	version=${version%?}
+	# replace version line in this script
+	sed -i '' "s/version='1.0'/version='$version'/g" $script
+}
 
 
 
@@ -767,6 +789,9 @@ function commit {
 		echo $color''$gitdir''$reset' repository cloning failed.'
 		exit 1
 	fi
+
+	change_version
+
 	# move into repo
 	cd $gitdir
 	# copy script to repository
@@ -787,7 +812,7 @@ function commit {
 	# remove repository
 	rm -rf $gitdir
 	# print success message
-	echo $color''$scriptname''$reset' script pushed to '$color''$gitdir''$reset' repository.\n'
+	echo '\n'$color''$scriptname''$reset' script pushed to '$color''$gitdir''$reset' repository.\n'
 }
 
 
