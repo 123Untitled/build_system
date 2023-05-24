@@ -751,58 +751,39 @@ function commit {
 	local repo='git@github.com:123Untitled/-build-system-.git'
 	# directory
 	local gitdir='build-system'
-
 	# check repository folder existance
 	if [[ -d $gitdir ]]; then
 		echo $color''$gitdir''$reset' repository already exists.'
 		exit 1
 	fi
-
-	echo 'cloning'$color''$gitdir''$reset' repository...\n'
 	# clone repository
 	git clone $repo $gitdir
-
 	# check if repository was cloned
 	if [[ $? -ne 0 ]]; then
 		echo $color''$gitdir''$reset' repository cloning failed.'
 		exit 1
 	fi
-
-	sleep 2
-
-	echo 'moving into'$color''$gitdir''$reset' repository...\n'
-
+	# move into repo
 	cd $gitdir
-	echo 'copying' $color''$scriptname''$reset' script to repository...\n'
 	# copy script to repository
 	cp '..'/$scriptname '.'
-	# change directory to repository
-	sleep 2
-	echo 'adding' $color''$scriptname''$reset' script to repository...\n'
 	# add script to repository
-	git add $scriptname
-	sleep 2
-	vared -p 'commit message: ' -c commit_msg
-
-	sleep 2
-	echo 'commiting' $color''$scriptname''$reset' script to repository...\n'
-	# commit script to repository
-	git commit -m "$commit_msg"
-
-	sleep 2
-	echo 'pushing' $color''$scriptname''$reset' script to repository...\n'
-	# push script to repository
-	git push
-
-	# change directory to previous
-	echo 'moving out of'$color''$gitdir''$reset' repository...\n'
+	git add $scriptname && \
+	# get commit message
+	vared -p 'commit message: ' -c commit_msg && \
+	# commit and push script to repository
+	git commit -m "$commit_msg" && git push
+	# check if commit was successful
+	if [[ $? -ne 0 ]]; then
+		echo $color''$scriptname''$reset' script commit failed.'
+		exit 1
+	fi
+	# move back
 	cd ..
 	# remove repository
-	echo 'removing'$color''$gitdir''$reset' repository...\n'
-	rm -rf 'build-system-'
-
+	rm -rf $gitdir
+	# print success message
 	echo $color''$scriptname''$reset' script pushed to '$color''$gitdir''$reset' repository.\n'
-	# exit
 }
 
 
