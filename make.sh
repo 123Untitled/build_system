@@ -41,9 +41,6 @@ scriptname=${0##*/}
 
 
 
-
-
-
 # -- O P E R A T I N G  S Y S T E M -------------------------------------------
 
 # check if operating system is supported
@@ -748,6 +745,67 @@ function header {
 }
 
 
+function commit {
+	echo;
+	# repository
+	local repo='git@github.com:123Untitled/-build-system-.git'
+	# directory
+	local gitdir='build-system'
+
+	# check repository folder existance
+	if [[ -d $gitdir ]]; then
+		echo $color''$gitdir''$reset' repository already exists.'
+		exit 1
+	fi
+
+	echo 'cloning'$color''$gitdir''$reset' repository...\n'
+	# clone repository
+	git clone $repo $gitdir
+
+	# check if repository was cloned
+	if [[ $? -ne 0 ]]; then
+		echo $color''$gitdir''$reset' repository cloning failed.'
+		exit 1
+	fi
+
+	sleep 2
+
+	echo 'moving into'$color''$gitdir''$reset' repository...\n'
+
+	cd $gitdir
+	echo 'copying' $color''$scriptname''$reset' script to repository...\n'
+	# copy script to repository
+	cp '..'/$scriptname '.'
+	# change directory to repository
+	sleep 2
+	echo 'adding' $color''$scriptname''$reset' script to repository...\n'
+	# add script to repository
+	git add $scriptname
+	sleep 2
+	vared -p 'commit message: ' -c commit_msg
+
+	sleep 2
+	echo 'commiting' $color''$scriptname''$reset' script to repository...\n'
+	# commit script to repository
+	git commit -m "$commit_msg"
+
+	sleep 2
+	echo 'pushing' $color''$scriptname''$reset' script to repository...\n'
+	# push script to repository
+	git push
+
+	# change directory to previous
+	echo 'moving out of'$color''$gitdir''$reset' repository...\n'
+	cd ..
+	# remove repository
+	echo 'removing'$color''$gitdir''$reset' repository...\n'
+	rm -rf 'build-system-'
+
+	echo $color''$scriptname''$reset' script pushed to '$color''$gitdir''$reset' repository.\n'
+	# exit
+}
+
+
 
 function main {
 
@@ -757,8 +815,10 @@ function main {
 	required
 	#init variable
 	#required
-
-	if [[ $target == 'run' ]]; then
+	if [[ $target == 'commit' ]]; then
+		commit
+		exit 0
+	elif [[ $target == 'run' ]]; then
 		header "run"
 		compile
 		database
