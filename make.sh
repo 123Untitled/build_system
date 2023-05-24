@@ -3,6 +3,10 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
+version='0.0.1'
+
+
+
 
 
 # -- C O L O R  S E T T I N G S -----------------------------------------------
@@ -797,6 +801,7 @@ function main {
 	#init variable
 	#required
 	if [[ $target == 'commit' ]]; then
+		header "commit"
 		commit
 		exit 0
 	elif [[ $target == 'run' ]]; then
