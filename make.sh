@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='1.0.0.3'
+version='1.0.0.5'
 
 
 
@@ -42,32 +42,6 @@ scriptname=${0##*/}
 
 
 
-function change_version {
-	# remove dots
-	update=${version//./}
-	# convert to decimal
-	update=$((16#$update))
-	# increment
-	update=$(($update+1))
-	# convert to hex
-	update=$(printf '%x' $update)
-	# reset version
-	version=''
-	# loop through all digits to insert dots
-	for (( i=0; i < ${#update}; ++i )); do
-		version+=${update:$i:1}'.'
-	done
-	# remove last dot
-	version=${version%?}
-	# replace version line in this script
-	sed -i '' "s/^version='[0-9A-Fa-f.]*[0-9A-Fa-f]'/version='$version'/g" $script
-	# check if version was changed
-	if [[ $? -eq 0 ]]; then
-		echo 'Version changed to' $color$version$reset
-	else
-		echo 'Version could not be changed.'
-	fi
-}
 
 
 
@@ -775,6 +749,34 @@ function header {
 }
 
 
+function change_version {
+	# remove dots
+	update=${version//./}
+	# convert to decimal
+	update=$((16#$update))
+	# increment
+	update=$(($update+1))
+	# convert to hex
+	update=$(printf '%x' $update)
+	# reset version
+	version=''
+	# loop through all digits to insert dots
+	for (( i=0; i < ${#update}; ++i )); do
+		version+=${update:$i:1}'.'
+	done
+	# remove last dot
+	version=${version%?}
+	# replace version line in this script
+	sed -i '' "s/^version='[0-9A-Fa-f.]*[0-9A-Fa-f]'/version='$version'/g" $script
+	# check if version was changed
+	if [[ $? -eq 0 ]]; then
+		echo '\nVersion changed to' $color$version$reset'\n'
+	else
+		echo '\nVersion could not be changed.\n'
+	fi
+}
+
+
 function commit {
 	echo;
 	# repository
@@ -793,9 +795,8 @@ function commit {
 		echo $color''$gitdir''$reset' repository cloning failed.'
 		exit 1
 	fi
-
+	# change version
 	change_version
-
 	# move into repo
 	cd $gitdir
 	# copy script to repository
