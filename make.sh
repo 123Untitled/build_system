@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='3'
+version='4'
 
 
 
@@ -73,6 +73,8 @@ check_os
 
 
 
+# -- R E Q U I R E D  P R O G R A M S -----------------------------------------
+
 function required {
 	# required programs
 	local commands=('clang++' 'ar'
@@ -85,7 +87,7 @@ function required {
 		# check if command is installed
 		if [[ -z "$(command -v $cmd)" ]]; then
 			# print error message
-			echo $error'Error:'$reset 'required program' \
+			echo '\n'$error'Error:'$reset 'required program' \
 				$color''$cmd''$reset 'is not installed.'
 			# exit script
 			exit 1
@@ -98,11 +100,6 @@ required
 
 
 
-
-# check if all required commands are installed
-#for cmd in $required_commands; do
-#	check_command $cmd
-#done
 
 # .env file
 env=$abspath/'.env'
@@ -157,7 +154,7 @@ depdir=$blddir/'_dep'
 jsndir=$blddir/'_jsn'
 
 # compile log directory
-cmpdir=$blddir/'compile'
+cmpdir=$blddir/'_log'
 
 # cache directory
 cachedir=$abspath/'.cache'
@@ -230,8 +227,6 @@ static=$abspath/'lib'$project.'a'
 # compilation database
 compdb=$abspath/'compile_commands.json'
 
-# log file
-logfile=$abspath/'compile.log'
 
 
 # -- C O M P I L E R  S E T T I N G S -----------------------------------------
@@ -446,187 +441,6 @@ done # reset color
 separator+=$reset
 
 
-function error_colorizer {
-
-	local logs=($cmpdir/**/*.'log'(.N))
-
-	local buffer=''
-	local final=()
-	# associative array
-	declare -A hashers
-
-	# loop over log files
-	for log in $logs; do
-		# skip empty log files
-		if [[ ! -s $log ]]; then; continue; fi
-
-
-		#echo '\n\n'$log | tr '[:lower:]' '[:upper:]'
-
-		local file=(${(f)"$(<$log)"})
-
-		for line in $file; do
-
-			# regex pattern to match: "In file included from ..."
-			if  [[ $line =~ "^In file included from" ]]      || \
-				[[ $line =~ "^[0-9]+ errors? generated.$" ]] || \
-				[[ $line =~ "^ *~*\^~* *$" ]]; then; continue; fi
-
-			#echo $color'>'$reset$line;
-
-			# split line with white spaces
-			local words=(${=line})
-
-			for word in $words; do
-
-				local add=''
-				#echo $color'w'$reset$word;
-				# check if word match pattern
-				if [[ $word =~ "^(.*):([0-9]+):([0-9]+):" ]]; then
-
-					#echo $buffer
-					local flag=0
-					# check if buffer is not empty
-					if [[ -n $buffer ]]; then
-						# check if final is not empty
-						if [[ ${#final[@]} -gt 0 ]]; then
-							# loop over final array
-							for b in ${final[@]}; do
-								# check if buffer is not in final
-								if [[ "$b" == "$buffer" ]]; then
-									# set flag
-									flag="1"
-									echo "o"
-									break
-								fi
-							done
-							if [[ $flag == "0" ]]; then
-								# add buffer to final
-								final+=($buffer)
-								# clear buffer
-								buffer=''
-							else
-								flag=0
-							fi
-						else
-							# add buffer to final
-							final+=($buffer)
-							# clear buffer
-							buffer=''
-						fi
-					fi
-
-
-
-					# check if buffer is not in hashers (here invalid subscript, why ?)
-					#if [[ -n $buffer ]] && [[ hashers[$buffer] -ne 1 ]]; then
-					#	# add buffer to hashers
-					#	hashers[$buffer]=1
-					#	echo $buffer
-					#	final+=($buffer)
-					#fi
-
-					# get file name
-					local src_file=${match[1]##*/}
-					# get line number
-					local y=${match[2]}
-					# get column number
-					local x=${match[3]}
-					#echo -n $src_file $y $x' '
-					buffer+=$src_file' '$y' '$x' '
-
-				# match for "note:" or "warning:" or "error:"
-				elif [[ $word =~ "^(note:|warning:|error:)$" ]]; then
-					# remove ':' from word
-					word=${word%?}
-					#echo -n $word '> '
-					buffer+=$word' > '
-				else
-					# print word
-					#echo -n $word' '
-					buffer+=$word' '
-				fi
-
-			done # end of word
-			buffer+="\n"
-
-			#echo;
-		done # end of line
-		#echo $separator
-	done # end of log
-
-	for x in $final; do
-		echo '>>>\n'$x
-	done
-}
-
-#function error_colorizer {
-#	# check log file
-#	if [[ ! -e $logfile ]]; then
-#		# print error message
-#		echo $error':('$reset 'log file is gone somewhere...'
-#		exit 1
-#	fi
-#
-#	# fill an array of lines
-#	local lines=(${(f)"$(<$logfile)"})
-#
-#	# loop over lines
-#	for line in $lines; do
-#
-#		# regex pattern to match: "In file included from ..."
-#		if [[ $line =~ "^In file included from" ]]; then
-#			continue
-#		fi
-#		# regex pattern to match: "x errors generated."
-#		if [[ $line =~ "^[0-9]+ errors? generated.$" ]]; then
-#			continue
-#		fi
-#		# match symbol '^~~~~~'
-#		if [[ $line =~ "^ *~*\^~* *$" ]]; then
-#			continue
-#		fi
-#
-#		# white space split
-#		local words=(${=line})
-#		# loop over words
-#		for word in "${words[@]}"; do
-#
-#			# regex pattern
-#			local location="^(.*):([0-9]+):([0-9]+):"
-#			# check if word match pattern
-#			if [[ $word =~ $location ]]; then
-#
-#				echo $separator
-#				# get file name
-#				local file=${match[1]##*/}
-#				# get line number
-#				local y=${match[2]}
-#				# get column number
-#				local x=${match[3]}
-#
-#				# print file name
-#				#echo -n '['$color$file$reset']' '['$color$y$reset'] ['$color$x$reset'] '
-#				echo -n '\n''['$file']' '['$y']' '['$x'] ' >> error.log
-#
-#
-#			# match for "note:" or "warning:" or "error:"
-#			local hint="^(note:|warning:|error:)$"
-#			#elif [[ $word =~ $pattern ]]; then
-#			elif [[ $word =~ $hint ]]; then
-#				# print error
-#				#echo -n $error$word$reset' '
-#				echo -n $word' ' >> error.log
-#			else
-#				# print word
-#				#echo -n $word' '
-#				echo -n $word' ' >> error.log
-#			fi
-#		done
-#	done
-#}
-
-
 
 function compile {
 
@@ -677,10 +491,23 @@ function compile {
 			#pkill -P $$ # kill all child processes
 			wait
 			echo "\n\n🔥 compilation failed."
-			./filter < $cmpdir/*.log
-			#cat $cmpdir/*.log
-			#bat $cmpdir/*.log
-			#error_colorizer
+
+			# check clang-filter executable exists
+			if [[ ! -x "clang-filter" ]]; then
+				git clone 'git@github.com:123Untitled/build_system.git' 'build_system'
+				if [[ $? -ne 0 ]]; then
+					echo $error':('$reset 'failed to clone build_system repository.'
+					exit 1
+				fi
+				(cd 'build_system'/'clang-filter' && make && cp 'clang-filter' '../../')
+				if [[ $? -ne 0 ]]; then
+					echo $error':('$reset 'failed to compile clang-filter.'
+					exit 1
+				fi
+				rm -rf 'build_system'
+			fi
+
+			./clang-filter < $cmpdir/*.log
 			exit 1
 		fi
 	done
@@ -820,18 +647,39 @@ function commit {
 
 
 
+
+
+# main function
 function main {
-
-
 
 	check_os
 	required
 	#init variable
 	#required
-	if [[ $target == 'commit' ]]; then
-		header "commit"
-		commit
-		exit 0
+
+
+	# executable
+	if [[ $target == 'exec' ]] || [[ -z $target ]]; then
+		header $executable
+		compile
+		database
+		linkage $executable make_executable
+
+	# dynamic library
+	elif [[ $target == 'dynamic' ]]; then
+		header $dynamic
+		compile
+		database
+		linkage $dynamic make_dynamic
+
+	# static library
+	elif [[ $target == 'static' ]]; then
+		header $static
+		compile
+		database
+		linkage $static make_static
+
+	# build and run
 	elif [[ $target == 'run' ]]; then
 		header "run"
 		compile
@@ -840,14 +688,17 @@ function main {
 		$executable
 		exit 0
 
+	# clean
 	elif [[ $target == 'clean' ]]; then
 		header "clean"
 		make_clean
 
+	# full clean
 	elif [[ $target == 'fclean' ]]; then
 		header "fclean"
 		make_fclean
 
+	# rebuild
 	elif [[ $target == 're' ]]; then
 		header "re"
 		make_clean
@@ -855,24 +706,13 @@ function main {
 		database
 		linkage $executable make_executable
 
-	elif [[ $target == 'exec' ]] || [[ -z $target ]]; then
-		header $executable
-		compile
-		database
-		linkage $executable make_executable
+	# script commit
+	elif [[ $target == 'commit' ]]; then
+		header "commit"
+		commit
+		exit 0
 
-	elif [[ $target == 'dynamic' ]]; then
-		header $dynamic
-		compile
-		database
-		linkage $dynamic make_dynamic
-
-	elif [[ $target == 'static' ]]; then
-		header $static
-		compile
-		database
-		linkage $static make_static
-
+	# unknown target
 	else
 		header "???"
 		echo $separator
@@ -885,13 +725,8 @@ function main {
 }
 
 
-main
 
-
-
-
-
-
-exit 0
+# call main function
+main; exit (0)
 
 
