@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-xversion='1'
+version='2'
 
 
 
@@ -768,14 +768,8 @@ function change_version {
 	version=${version%?}
 	# replace version line in this script
 	sed -i '' "s/^version='[0-9A-Fa-f.]*[0-9A-Fa-f]'/version='$version'/g" $script
-	# check if version was changed
-	if [[ $? -eq 0 ]]; then
-		echo '\nVersion changed to' $color$version$reset'\n'
-		return 0
-	else
-		echo '\nVersion could not be updated. stop.\n'
-		return 1
-	fi
+	echo '\nVersion changed to' $color$version$reset'\n'
+	return 0
 }
 
 
