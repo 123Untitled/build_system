@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='1.0.0.5'
+version='1.0.0.6'
 
 
 
@@ -805,6 +805,8 @@ function commit {
 	git add $scriptname && \
 	# get commit message
 	vared -p 'commit message: ' -c commit_msg && \
+	# new line
+	echo && \
 	# commit and push script to repository
 	git commit -m "$commit_msg" && git push
 	# check if commit was successful
