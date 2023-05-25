@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='1'
+xversion='1'
 
 
 
@@ -771,8 +771,10 @@ function change_version {
 	# check if version was changed
 	if [[ $? -eq 0 ]]; then
 		echo '\nVersion changed to' $color$version$reset'\n'
+		return 0
 	else
-		echo '\nVersion could not be changed.\n'
+		echo '\nVersion could not be updated. stop.\n'
+		return 1
 	fi
 }
 
@@ -796,11 +798,11 @@ function commit {
 		exit 1
 	fi
 	# change version
-	change_version
+	change_version && \
 	# move into repo
-	cd $gitdir
+	cd $gitdir && \
 	# copy script to repository
-	cp '..'/$scriptname '.'
+	cp '..'/$scriptname '.' && \
 	# add script to repository
 	git add $scriptname && \
 	# get commit message
