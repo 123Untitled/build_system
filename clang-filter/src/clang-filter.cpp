@@ -1,165 +1,228 @@
-#include <unistd.h>
-#include <string>
-#include <iostream>
-#include <vector>
-#include <map>
-#include <regex>
+#include "../inc/clang-filter.hpp"
 
-// This program reads from stdin clang++ stderror and re-formats it to stdout
+// remap clang++ error messages to shorter and funnier ones
+const cf::logger::mapppings cf::logger::_mapppings = {
+	{"has been explicitly marked deleted here",
+		"annihilated here"},
 
-class logger {
+	{"call to deleted constructor of",
+		"banned ctor of"},
 
-	public:
+	{"static assertion failed",
+		"static flop"},
 
-		// -- T Y P E S -------------------------------------------------------
+	{"candidate function has been explicitly deleted",
+		"vanished function"},
 
-		/* string type */
-		using string = std::string;
+	{"overload resolution selected deleted operator",
+		"banned operator picked"},
 
-		/* string vector type */
-		using string_vector = std::vector<string>;
+	{"evaluated to false",
+		"evaluated to nope !"},
 
+	{"candidate function not viable",
+		"function lost its mojo"},
 
-		// -- C O N S T R U C T O R S -----------------------------------------
+	{"no known conversion from",
+		"no magic for"},
 
-		/* default constructor */
-		logger(std::string&& file, std::string&& line, std::string&& column, std::string&& message)
-		: _file{std::move(file)}, _line{std::move(line)}, _column{std::move(column)}, _message{std::move(message)}, _rest{} {}
+	{"candidate template ignored",
+		"template ghosted"},
 
-		/* delete copy constructor */
-		logger(const logger&) = delete;
+	{"candidate function template not viable",
+		"unworkable function template"},
 
-		/* move constructor */
-		logger(logger&&) noexcept = default;
+	{"constraints not satisfied for class template",
+		"failed template requirements"},
 
-		/* destructor */
-		~logger(void) {}
+	{"use of undeclared identifier",
+		"mysterious identifier"},
 
+	{"no matching function for call to",
+		"function call has no match"},
 
-		// -- O P E R A T O R S -----------------------------------------------
+	{"unknown type name",
+		"obscure"},
 
-		/* delete copy assignment */
-		logger& operator=(const logger&) = delete;
+	{"did you mean",
+		"suggest"},
 
-		/* move assignment */
-		logger& operator=(logger&&) noexcept = default;
+	{"expected unqualified-id",
+		"wrong syntax"},
 
+	{"too many template arguments for function template",
+		"excess template arguments"},
 
-		// -- M E T H O D S ---------------------------------------------------
+	{"in instantiation of function template specialization",
+		"during template magic"},
 
-		/* print contents */
-		void print(void) {
-			std::cout << "\x1b[32m   file:\x1b[0m " << _file << " | ";
-			std::cout << "\x1b[32ml:\x1b[0m " << _line << ", ";
-			std::cout << "\x1b[32mc:\x1b[0m " << _column << "\n";
-			std::cout << "\x1b[32mmessage:\x1b[0m " << _message << std::endl;
+	{"in instantiation of member function",
+		"in member function"},
 
-			string_vector::iterator it = _rest.begin();
-			for (; it != _rest.end(); ++it) {
-				std::cout << "\x1b[32m      ->\x1b[0m " << *it << std::endl;
-			}
-			std::cout << std::endl << std::endl;
-		}
+	{"required from here",
+		"required here"},
+};
 
-		/* add more */
-		void add_more(std::string&& more) {
-			_rest.emplace_back(std::move(more));
-		}
+const std::regex cf::logger::_rgx[TYPE_MAX - 1] = {
+	std::regex{"^note: "},
+	std::regex{"^warning: "},
+	std::regex{"^error: "}
+};
 
-	private:
-		string        _file;
-		string        _line;
-		string        _column;
-		string        _message;
-		string_vector _rest;
+const char* cf::logger::_colors[TYPE_MAX] = {
+	"\033[1;36m",
+	"\033[1;33m",
+	"\033[1;32m",
+	"\033[1;35m"
+};
 
+const char* what[4] = {
+	"note",
+	"warning",
+	"error",
+	"undefined"
 };
 
 
-int main(void) {
+cf::logger::logger(std::string&& file, std::string&& line, std::string&& column, std::string&& message)
+:     _file{std::move(file)},
+	  _line{std::move(line)},
+	_column{std::move(column)},
+	_messages{ } {
 
-	std::vector<logger> loggers;
-	std::map<std::string, bool> occurred;
-	//std::unordered_set<std::string> occurred2;
+		// fill line and column with leading zeros (3 digits)
+		size_type x = 4 - _line.size();
+		_line.insert(0, x, '0');
 
-	std::string line;
-	std::smatch match;
-
-	while (true) {
-
-		// read line
-		std::getline(std::cin, line);
-
-		//if (std::cin.fail()) { std::cout << "FAIL" << std::endl; return EXIT_FAILURE; }
-		if (std::cin.eof())  { break;               }
-		if (line.empty())    { continue;            }
-
-		if (occurred.find(line) != occurred.end()) { continue; }
-		occurred[line] = true;
-
-		enum {
-			FILE_LINE_COLUMN_MESSAGE,
-			CARET_WHERE_ERROR_OCCURED,
-			ERRORS_GENERATED,
-			INCLUDED_FILE,
-			MAX
-		};
+		size_type y = 4 - _column.size();
+		_column.insert(0, y, '0');
 
 
-		std::regex rgx[MAX] = {
-			std::regex("^.*\\/([^\\/]+):([0-9]+):([0-9]+): *(.*)$"), // file + line + column + message
-			std::regex("^ *~* *\\^ *~* *$"), // caret showing where error occurred
-			std::regex("^ *[0-9]+ errors? generated.$"), // number of errors
-			std::regex("^In file included from") // included file
-		};
+	if (std::regex_search(message, _rgx[NOTE])) {
+		_type = NOTE;
+	}
+	else if (std::regex_search(message, _rgx[WARNING])) {
+		_type = WARNING;
+	}
+	else if (std::regex_search(message, _rgx[ERROR])) {
+		_type = ERROR;
+	}
+	else {
+		_type = UNDEFINED;
+	}
 
+	auto clean = std::regex_replace(std::move(message), _rgx[_type], "");
 
-
-		if (std::regex_search(line, match, rgx[CARET_WHERE_ERROR_OCCURED])) {
-			// skip this line
-			continue;
+	// replace clang++ error messages by shorter and funnier ones
+	for (auto& [key, value] : _mapppings) {
+		const std::regex rgx{key};
+		if (std::regex_search(clean, rgx)) {
+			clean = std::regex_replace(clean, rgx, value);
 		}
-		else if (std::regex_search(line, match, rgx[ERRORS_GENERATED])) {
-			// skip this line
-			continue;
+	}
+
+	// replace generic template names by their real name
+	static std::regex rgx{"'(.*)' \\(aka '(.*)'\\)"};
+	if (std::regex_search(clean, _match, rgx)) {
+		clean = std::regex_replace(clean, rgx, "'$2'");
+	}
+
+	// search quotes to colorize them
+	static std::regex rgx2{"'(.*?)'"};
+	if (std::regex_search(clean, _match, rgx2)) {
+		clean = std::regex_replace(clean, rgx2, "\x1b[3;32m'$1'\x1b[0m");
+	}
+
+
+	_messages.emplace_back(std::move(clean));
+}
+
+bool is_symbol(const char* charset, const char& c) {
+	// loop over charset
+	for (unsigned x = 0; charset[x] != '\0'; ++x) {
+		// check match !
+		if (charset[x] == c) { return true; }
+	} // no match
+	return false;
+}
+
+void cf::logger::colorize(const string& snip) const {
+	enum { PUNC, OPER };
+	static const char* symbols[] = {
+		// punctuation ()[]{}<>:;,.
+		"()[]{}<>:;,.",
+		// operators +-*/%^=!?&|~
+		"+-*/%^=!?&|~"
+	};
+
+	static const char* colors[] = {
+		"\033[1;35m", // punctuation
+		"\033[1;37m",  // operators
+		"\x1b[0m" // reset
+	};
+
+	// loop over characters
+	for (auto it = snip.begin(); it != snip.end(); ++it) {
+
+		if (is_symbol(symbols[PUNC], *it)) {
+			std::cout << colors[PUNC];
 		}
-		else if (std::regex_search(line, match, rgx[INCLUDED_FILE])) {
-			// skip this line
-			continue;
-		}
-		else if (std::regex_search(line, match, rgx[FILE_LINE_COLUMN_MESSAGE])) {
-
-
-			loggers.emplace_back(std::move(match[1]),
-								 std::move(match[2]),
-								 std::move(match[3]),
-								 std::move(match[4]));
-
-			//loggers.back().print();
-
+		else if (is_symbol(symbols[OPER], *it)) {
+			std::cout << colors[OPER];
 		}
 		else {
-			//std::cout << "NON-PARSEABLE: " << line << std::endl;
-			loggers.back().add_more(std::move(line));
+			std::cout << colors[2];
 		}
 
+		// print character
+		std::cout << *it;
 	}
-
-	std::cout << "\n" << loggers.size() << " errors" << "\n" << std::endl;
-
-	for (std::vector<logger>::iterator it = loggers.begin(); it != loggers.end(); ++it) {
-		it->print();
-	}
-
-	return 0;
+	std::cout << colors[2];
 
 }
+
+
+void cf::logger::print(void) const {
+	using namespace std;
+	// no sync with stdio buffer
+	ios::sync_with_stdio(false);
+	// set full buffered stdout
+	setvbuf(stdout, nullptr, _IOFBF, BUFSIZ);
+
+	if (_type == ERROR) {
+		cout << "----------------------------------------\n";
+	}
+
+	cout
+	<< _colors[_type] << "               file: " << RESET << _file << "\n"
+		<< "[" << _line << ":" << _column << "] "
+		 //<< _colors[_type] << "line: " << RESET << _line << ", "
+		 //<< _colors[_type] << "column: " << RESET << _column << "\n\n"
+		 << _colors[_type] << "message: " << RESET << _messages[0] << "\n\n";
+
+
+	std::cout << "\x1b[3m";
+	for (size_type x = 1; x < _messages.size(); ++x) {
+		if (_messages[x].empty()) { std::cout << "EMPTY\n"; continue;}
+		std::cout << "       \x1b[32m>\x1b[0m " << _messages[x];
+		//colorize(_messages[x]);
+		std::cout << "\n";
+		//cout << _colors[_type] << "      -> " << RESET << _messages[x] << "\n";
+	}
+	std::cout << "\x1b[0m\n\n\n" << flush;
+}
+
+void cf::logger::add_more(std::string&& more) {
+	_messages.emplace_back(std::regex_replace(std::move(more), std::regex("^ +"), ""));
+}
+
 
 const char* type[] = {
 	"candidate function not viable:",
 	"in instantiation of function template specialization",
 	"call to deleted constructor of",
 };
+
 
 
 
