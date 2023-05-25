@@ -1,7 +1,16 @@
 .PHONY: all
+.SILENT:
 
-src := $(wildcard src/*.cpp)
+exec     := clang-filter
+src      := $(wildcard src/*.cpp)
+inc      := $(addprefix -I,$(shell find inc -type f -name '*.hpp'))
+cxxflags := -Wall -Wextra -Werror -pedantic
+opt      := -O3
+std      := -std=c++2b
 
 all:
-	clang++ -std=c++17 -Wall -Wextra -Werror -pedantic $(src) -o clang-filter
+	clang++ $(std) $(opt) $(cxxflags) $(inc) $(src) -o $(exec)
+
+fclean:
+	rm -rf $(exec)
 
