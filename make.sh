@@ -3,7 +3,7 @@
 # This script is used to compile the project.
 # Makefile forever, but not really lol.
 
-version='f'
+version='1.0.0.3'
 
 
 
@@ -41,7 +41,6 @@ script=$abspath/${0##*/}
 scriptname=${0##*/}
 
 
-echo $script
 
 function change_version {
 	# remove dots
@@ -61,9 +60,14 @@ function change_version {
 	# remove last dot
 	version=${version%?}
 	# replace version line in this script
-	sed -i '' "s/version='1.0'/version='$version'/g" $script
+	sed -i '' "s/^version='[0-9A-Fa-f.]*[0-9A-Fa-f]'/version='$version'/g" $script
+	# check if version was changed
+	if [[ $? -eq 0 ]]; then
+		echo 'Version changed to' $color$version$reset
+	else
+		echo 'Version could not be changed.'
+	fi
 }
-
 
 
 
