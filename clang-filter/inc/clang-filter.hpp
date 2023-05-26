@@ -91,6 +91,11 @@ namespace cf {
 			/* add more */
 			void add_more(std::string&&);
 
+			/* add caret */
+			void add_caret(std::string&);
+
+
+
 			void colorize(const string&) const;
 
 		private:
@@ -105,6 +110,9 @@ namespace cf {
 
 			/* message */
 			string_vector _messages;
+
+			/* caret */
+			string        _caret;
 
 			int _type;
 
