@@ -2,8 +2,17 @@
 
 // remap clang++ error messages to shorter and funnier ones
 const cf::logger::mapppings cf::logger::_mapppings = {
+
+	// to change !
+	{"no viable constructor or deduction guide for deduction of template arguments of",
+		"no viable constructor or deduction guide for deduction of template arguments of"},
+
+
 	{"has been explicitly marked deleted here",
 		"annihilated here"},
+
+	{"invalid explicitly-specified argument for template parameter",
+		"faulty template argument"},
 
 	{"set but not used",
 		"lone wolf"},
@@ -159,9 +168,9 @@ cf::logger::logger(std::string&& file, std::string&& line, std::string&& column,
 	}
 
 	// search quotes to colorize them
-	static std::regex rgx2{"[\"'](.*?)[\"']"};
+	static std::regex rgx2{" '(.*?)'([ ]|$)"};
 	if (std::regex_search(clean, _match, rgx2)) {
-		clean = std::regex_replace(clean, rgx2, "\x1b[3;32m'$1'\x1b[0m");
+		clean = std::regex_replace(clean, rgx2, " \x1b[4;31m'$1'\x1b[0m ");
 	}
 
 
