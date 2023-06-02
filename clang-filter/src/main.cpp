@@ -14,6 +14,33 @@ constexpr const char* const errors[] = {
 
 // This program reads from stdin clang++ stderror and re-formats it to stdout
 
+
+bool forward_stdin(void) {
+
+	// avoid namespace pollution
+	using namespace std;
+
+	// line string buffer
+	string line;
+
+	// loop over lines
+	while (true) {
+		// read line
+		getline(std::cin, line);
+		// check for end of file
+		if (cin.eof())  { break; }
+		// check for error
+		if (cin.fail()) {
+			cout << errors[STDIN_ERROR] << flush;
+			return false;
+		}
+		// print line
+		cout << line << endl;
+	}
+	return true;
+}
+
+
 bool first_filter(std::vector<std::string>& files) {
 
 	// avoid namespace pollution
@@ -53,7 +80,7 @@ bool first_filter(std::vector<std::string>& files) {
 			// check if there is a file
 			if (files.empty()) {
 				cout << errors[PARSING_ERROR] << flush;
-				return false;
+				return forward_stdin();
 			}
 			files.back().append("\n").append(line);
 		}
