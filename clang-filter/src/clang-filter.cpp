@@ -139,11 +139,20 @@ const char* what[4] = {
 };
 
 
-cf::logger::logger(std::string&& file, std::string&& line, std::string&& column, std::string&& message)
-:     _file{std::move(file)},
+cf::logger::logger(std::string&& path,
+		std::string&& file, std::string&& line, std::string&& column, std::string&& message)
+:	  _path{""},
+	  _file{std::move(file)},
 	  _line{std::move(line)},
 	_column{std::move(column)},
 	_messages{ } {
+
+	// extract full path:
+	std::regex fp{"^(.*):[0-9]+:[0-9]+: *(.*)$"};
+	std::smatch match;
+	if (std::regex_search(path, match, fp)) {
+		_path = std::move(match[1]);
+	}
 
 	// check message type
 	if      (std::regex_search(message, _rgx[NOTE]))    { _type = NOTE;      }
@@ -172,6 +181,13 @@ cf::logger::logger(std::string&& file, std::string&& line, std::string&& column,
 	if (std::regex_search(clean, _match, rgx2)) {
 		clean = std::regex_replace(clean, rgx2, " \x1b[4;31m'$1'\x1b[0m ");
 	}
+
+	// search double quotes to colorize them
+	static std::regex rgx3{" \"(.*?)\"([ ]|$)"};
+	if (std::regex_search(clean, _match, rgx3)) {
+		clean = std::regex_replace(clean, rgx3, " \x1b[4;31m\"$1\"\x1b[0m ");
+	}
+
 
 
 	_messages.emplace_back(std::move(clean));
@@ -229,14 +245,35 @@ void cf::logger::print(void) const {
 
 	using namespace std;
 
+	std::string_view logo = R"(
+
+    _______   _______   ________   ______  ________   _______   _______
+  ╱╱       ╲╱╱       ╲ ╱        ╲╱╱      ╲╱        ╲╱╱       ╲╱╱       ╲
+ ╱╱        ╱╱      __╱_╱       ╱╱╱       ╱        _╱╱        ╱╱        ╱
+╱       --╱        _╱╱         ╱        ╱╱       ╱╱        _╱        _╱
+╲________╱╲_______╱  ╲╲_______╱╲________╱╲_____╱╱ ╲________╱╲____╱___╱
+
+)";
+
+
+
+
+
+
 	if (_messages.size() == 1 && _caret.empty()) { return; }
 
-	if (_type == ERROR) {
+	write(STDOUT_FILENO, logo.data(), logo.size());
+
+	std::string_view info = "press \x1b[32mup\x1b[0m/\x1b[32mdown\x1b[0m to navigate between errors.\n\n";
+
+	write(STDOUT_FILENO, info.data(), info.size());
+
+	/*if (_type == ERROR) {
 		cout << _colors[0] << "----------------------------------------\n";
-	}
+	}*/
 
 	cout << /*_colors[0] <<*/ "    file: " << RESET << _file << "\n"
-		 << /*_colors[0] <<*/ "position: " << RESET << _line << ", " << _column << "\n"
+		 << /*_colors[0] <<*/ "position: " << RESET << _line << ", " << _column << "\n\n"
 		 << /*_colors[0] <<*/ what[_type] << RESET << _messages[0] << "\n\n";
 
 	cout << "\x1b[3m";
@@ -270,3 +307,39 @@ void cf::logger::add_more(std::string&& more) {
 	// remove x first characters of _caret
 
 }
+
+
+// -- public accessors --------------------------------------------------------
+
+/* get file path */
+const std::string& cf::logger::path(void) const {
+	return _path;
+}
+
+/* get file name */
+const std::string& cf::logger::file(void) const {
+	return _file;
+}
+
+/* get line number */
+const std::string& cf::logger::line(void) const {
+	return _line;
+}
+
+/* get column number */
+const std::string& cf::logger::column(void) const {
+	return _column;
+}
+
+
+// -- public modifiers --------------------------------------------------------
+
+
+
+
+
+
+
+
+
+

@@ -4,9 +4,14 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <regex>
 #include <unordered_map>
+#include <unordered_set>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define COLOR1 "\x1b[32m"
 #define COLOR2 "\x1b[33m"
@@ -61,8 +66,10 @@ namespace cf {
 			/* deleted default constructor */
 			logger(void) = delete;
 
+			/* full path + */
 			/* file + line + column + message constructor */
-			logger(std::string&&, std::string&&, std::string&&, std::string&&);
+			logger(std::string&&,
+					std::string&&, std::string&&, std::string&&, std::string&&);
 
 			/* deleted copy constructor */
 			logger(const logger&) = delete;
@@ -95,12 +102,32 @@ namespace cf {
 			void add_caret(std::string&);
 
 
+			// -- public accessors --------------------------------------------
+
+			/* get file path */
+			const string& path(void) const;
+
+			/* get file name */
+			const string& file(void) const;
+
+			/* get line */
+			const string& line(void) const;
+
+			/* get column */
+			const string& column(void) const;
+
+
+			// -- public modifiers --------------------------------------------
+
 
 			void colorize(const string&) const;
 
 		private:
 
 			// -- P R I V A T E  M E M B E R S --------------------------------
+
+			/* full path */
+			string        _path;
 
 			/* filename */
 			string        _file;

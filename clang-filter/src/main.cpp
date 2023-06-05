@@ -1,6 +1,5 @@
 #include "../inc/clang-filter.hpp"
 
-#include <unordered_set>
 
 enum {
 	PARSING_ERROR,
@@ -88,7 +87,6 @@ bool first_filter(std::vector<std::string>& files) {
 	return true;
 }
 
-#include <sstream>
 
 
 void second_pass(const std::vector<std::string>& files) {
@@ -116,9 +114,12 @@ void second_pass(const std::vector<std::string>& files) {
 		std::istringstream iss(file);
 		while (std::getline(iss, line)) {
 
-
 			if (std::regex_search(line, match, rgx[0])) {
-				loggers.emplace_back(std::move(match[1]),
+
+
+
+				loggers.emplace_back(std::move(match[0]),
+									std::move(match[1]),
 									std::move(match[2]),
 									std::move(match[3]),
 									std::move(match[4]));
@@ -137,10 +138,130 @@ void second_pass(const std::vector<std::string>& files) {
 
 	std::cout << "size: " << i << std::endl;
 	std::cout << "\n" << loggers.size() << " errors" << "\n" << std::endl;
-	for (std::vector<cf::logger>::iterator it = loggers.begin(); it != loggers.end(); ++it) {
-		it->print();
+
+	if (loggers.empty()) {
+		write(STDOUT_FILENO, "no compilation errors\n", 22);
+		return;
 	}
 
+	const char* tty = ttyname(STDOUT_FILENO);
+	const char* tid = ctermid(nullptr);
+
+	std::cout << "tty: " << tty << std::endl;
+	std::cout << "tid: " << tid << std::endl;
+
+	// open original terminal stdin (not redirected) (macos only)
+	int stdin_fd = open(tid, O_RDONLY);
+
+	if (stdin_fd == -1) {
+		write(STDOUT_FILENO, "ERROR: open\n", 12);
+		return;
+	}
+
+	struct termios recover, raw;
+
+	if (tcgetattr(stdin_fd, &recover) == -1) {
+		write(STDOUT_FILENO, "ERROR: tcgetattr\n", 17);
+		return;
+	}
+
+	raw = recover;
+
+	// set input mode (non-canonical, no echo,...)
+	raw.c_lflag &= ~(ECHO | ICANON);
+
+
+	if (tcsetattr(stdin_fd, TCSANOW, &raw) == -1) {
+		write(STDOUT_FILENO, "ERROR: tcsetattr\n", 17);
+		return;
+	}
+
+	char buff[4];
+
+	std::vector<cf::logger>::size_type x = loggers.size() - 1;
+
+	// enter in alternate screen
+	write(STDOUT_FILENO, "\033[?1049h", 8);
+	// remove cursor
+	write(STDOUT_FILENO, "\033[?25l", 6);
+	// clear screen
+	write(STDOUT_FILENO, "\033[2J", 4);
+	// move cursor to top
+	write(STDOUT_FILENO, "\033[H", 3);
+	// print logger
+	loggers[x].print();
+
+
+	while (int readed = read(stdin_fd, buff, 4)) {
+		// check for exit
+		if      (readed == 1 && *buff == 'q') { break; }
+		// check for 3 readed bytes
+		else if (readed == 3 && buff[0] == 27 && buff[1] == 91) {
+			// up
+			if (buff[2] == 65) { x -= (x > 0); }
+			// down
+			else if (buff[2] == 66) { x += (x < (loggers.size() - 1)); }
+			// else continue
+			else { continue; }
+			// clear screen
+			write(STDOUT_FILENO, "\033[2J", 4);
+			// move cursor to top
+			write(STDOUT_FILENO, "\033[H", 3);
+			// print logger
+			loggers[x].print();
+		}
+		// check for enter key
+		else if (readed == 1 && *buff == 10) {
+			// launch vim
+			std::string cmd = "nvim \"+call cursor(";
+			cmd.append(loggers[x].line());
+			cmd.append(",");
+			cmd.append(loggers[x].column());
+			cmd.append(")\" ");
+			cmd.append(" ");
+			cmd.append(loggers[x].path());
+			// exit alternate screen
+			write(STDOUT_FILENO, "\033[?1049l", 8);
+			// restore cursor
+			write(STDOUT_FILENO, "\033[?25h", 6);
+			// reset terminal
+			if (tcsetattr(stdin_fd, TCSANOW, &recover) == -1) {
+				write(STDOUT_FILENO, "ERROR: tcsetattr\n", 17);
+				return;
+			}
+			// launch vim
+			system(cmd.c_str());
+			// back to raw mode
+			if (tcsetattr(stdin_fd, TCSANOW, &raw) == -1) {
+				write(STDOUT_FILENO, "ERROR: tcsetattr\n", 17);
+				return;
+			}
+			// enter in alternate screen
+			write(STDOUT_FILENO, "\033[?1049h", 8);
+			// remove cursor
+			write(STDOUT_FILENO, "\033[?25l", 6);
+			// clear screen
+			write(STDOUT_FILENO, "\033[2J", 4);
+			// move cursor to top
+			write(STDOUT_FILENO, "\033[H", 3);
+			// remove error entry
+			//loggers.erase(loggers.begin() + x);
+			// re set index
+			//x -= (x > 0) && (x == loggers.size());
+			// print logger
+			loggers[x].print();
+		}
+	}
+
+	// exit alternate screen
+	write(STDOUT_FILENO, "\033[?1049l", 8);
+
+	if (tcsetattr(stdin_fd, TCSANOW, &recover) == -1) {
+		write(STDOUT_FILENO, "ERROR: tcsetattr\n", 17);
+		return;
+	}
+
+	close(stdin_fd);
 }
 
 
@@ -160,12 +281,6 @@ int main(void) {
 	second_pass(files);
 
 
-
-
-
-
-
-
 	return 0;
 
 }
@@ -174,58 +289,3 @@ int main(void) {
 
 
 
-
-
-
-/*
-	while (true) {
-
-		// read line
-		std::getline(std::cin, line);
-
-		if (std::cin.eof())  { break; }
-		if (std::cin.fail()) { std::cout << "FAIL" << std::endl; return EXIT_FAILURE; }
-		//std::cout << line << std::endl;
-
-
-
-		if (occurred.find(line) != occurred.end()) { continue; }
-		occurred.insert(line);
-
-
-		if (std::regex_search(line, match, rgx[cf::CARET_WHERE_ERROR_OCCURED])) {
-			// skip this line
-			continue;
-		}
-		if (std::regex_search(line, match, rgx[cf::ERRORS_GENERATED])) {
-			// skip this line
-			continue;
-		}
-		else if (std::regex_search(line, match, rgx[cf::INCLUDED_FILE])) {
-			// skip this line
-			continue;
-		}
-		else if (std::regex_search(line, match, rgx[cf::FILE_LINE_COLUMN_MESSAGE])) {
-
-
-			loggers.emplace_back(std::move(match[1]),
-								 std::move(match[2]),
-								 std::move(match[3]),
-								 std::move(match[4]));
-
-		}
-		else {
-			if (loggers.empty() == false) {
-					loggers.back().add_more(std::move(line));
-			}
-			else {
-				std::cout << "NON-PARSEABLE: " << line << std::endl;
-			}
-		}
-
-	}*/
-
-	//std::cout << "\n" << loggers.size() << " errors" << "\n" << std::endl;
-	//for (std::vector<cf::logger>::iterator it = loggers.begin(); it != loggers.end(); ++it) {
-	//	it->print();
-	//}
